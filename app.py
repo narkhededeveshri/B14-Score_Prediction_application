@@ -1,43 +1,62 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
 import pickle
+import numpy as np
 
-# Load your trained model and scaler (Ensure these files are in your directory)
-# model = pickle.load(open('model.pkl', 'rb'))
-# scaler = pickle.load(open('scaler.pkl', 'rb'))
+# Load the trained KNN model
+@st.cache_resource
+def load_model():
+    with open('knn.pkl', 'rb') as file:
+        model = pickle.load(file)
+    return model
 
-st.title("Machine Learning Prediction App")
-st.write("Please enter the required details below:")
+model = load_model()
 
-# --- 1. USER INPUTS ---
-# Using selectbox for categorical features
-gender_input = st.selectbox("Gender", ["Male", "Female"])
-age = st.number_input("Age", min_value=1, max_value=120, value=30)
-income = st.number_input("Annual Income ($)", min_value=0.0, value=50000.0)
+st.title("Student Performance Prediction App")
+st.write("Enter the student details below to generate a prediction using your K-Nearest Neighbors Regressor model[cite: 1].")
 
-# --- 2. FIX: CONVERT CATEGORICAL STRINGS TO NUMBERS ---
-# Map 'Male' and 'Female' to numbers (adjust 1/0 based on how your model was trained)
-gender_encoded = 1 if gender_input == "Male" else 0
+# Input widgets for each feature[cite: 1]
+col1, col2 = st.columns(2)
 
-# --- 3. PREDICTION LOGIC ---
+with col1:
+    age = st.number_input("Age", min_value=5, max_value=100, value=20)
+    gender = st.selectbox("Gender", ["Female", "Male", "Other"])
+    course = st.selectbox("Course", ["Science", "Arts", "Commerce", "Engineering", "Other"])
+    study_hours = st.slider("Study Hours per Day", 0.0, 16.0, 4.0)
+    class_attendance = st.slider("Class Attendance (%)", 0.0, 100.0, 85.0)
+    internet_access = st.selectbox("Internet Access", ["Yes", "No"])
+
+with col2:
+    sleep_hours = st.slider("Sleep Hours per Night", 0.0, 12.0, 7.0)
+    sleep_quality = st.selectbox("Sleep Quality", ["Poor", "Average", "Good", "Excellent"])
+    study_method = st.selectbox("Study Method", ["Self-Study", "Group Study", "Online Courses", "Coaching"])
+    facility_rating = st.slider("Facility Rating (1-5)", 1, 5, 3)
+    exam_difficulty = st.selectbox("Exam Difficulty", ["Easy", "Medium", "Hard"])
+
+# Note: Adjust these mappings if your training script used a different encoding method (e.g., One-Hot Encoding)
+gender_encoded = 1 if gender == "Male" else (2 if gender == "Other" else 0)
+internet_encoded = 1 if internet_access == "Yes" else 0
+
+course_map = {"Science": 0, "Arts": 1, "Commerce": 2, "Engineering": 3, "Other": 4}
+sleep_quality_map = {"Poor": 1, "Average": 2, "Good": 3, "Excellent": 4}
+study_method_map = {"Self-Study": 0, "Group Study": 1, "Online Courses": 2, "Coaching": 3}
+exam_difficulty_map = {"Easy": 1, "Medium": 2, "Hard": 3}
+
 if st.button("Predict"):
-    try:
-        # Create a DataFrame or array with the exact feature order used during training
-        # Example features: [Gender, Age, Income]
-        input_data = pd.DataFrame([[gender_encoded, age, income]], 
-                                  columns=['Gender', 'Age', 'Income'])
-        
-        # If you used a scaler during training, scale the data here:
-        # scaled_data = scaler.transform(input_data)
-        # prediction = model.predict(scaled_data)
-        
-        # Temporary simulation for demonstration (Replace with your model.predict)
-        st.success("Prediction generated successfully!")
-        st.write(f"**Processed Input Data:**")
-        st.dataframe(input_data)
-        
-        # st.write(f"Result: {prediction[0]}")
-
-    except Exception as e:
-        st.error(f"Error during prediction: {e}")
+    # Construct feature array matching the model's expected input order[cite: 1]
+    features = np.array([[
+        age,
+        gender_encoded,
+        course_map.get(course, 0),
+        study_hours,
+        class_attendance,
+        internet_encoded,
+        sleep_hours,
+        sleep_quality_map.get(sleep_quality, 2),
+        study_method_map.get(study_method, 0),
+        facility_rating,
+        exam_difficulty_map.get(exam_difficulty, 2)
+    ]])
+    
+    # Make prediction
+    prediction = model.predict(features)
+    st.success(f"Predicted Output: {prediction[0]:.2f}")
